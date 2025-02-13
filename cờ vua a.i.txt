@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Cờ Vua – JerryFish (Review Mode)</title>
+  <!-- Import Google Fonts Roboto -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Thư viện chess.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
+  <style>
+    /* Reset & Font */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #74ABE2, #5563DE);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #333;
+    }
+    .container {
+      width: 90%;
+      max-width: 1000px;
+      background: rgba(255,255,255,0.95);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      text-align: center;
+      position: relative;
+      animation: fadeIn 1s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+    }
+    .header div {
+      cursor: pointer;
+      padding: 12px 25px;
+      background: #3f51b5;
+      color: #fff;
+      border-radius: 30px;
+      transition: background 0.3s, transform 0.3s;
+      font-weight: 500;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    .header div:hover {
+      background: #2c3e9f;
+      transform: translateY(-2px);
+    }
+    /* Logo */
+    .jerryfish {
+      font-size: 42px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: #3f51b5;
+    }
+    /* Player selectors */
+    .player-select {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-bottom: 25px;
+    }
+    .player-select div {
+      cursor: pointer;
+      padding: 10px 20px;
+      background: #ff5722;
+      color: #fff;
+      border-radius: 30px;
+      transition: background 0.3s, transform 0.3s;
+      font-weight: 500;
+    }
+    .player-select div:hover {
+      background: #e64a19;
+      transform: translateY(-2px);
+    }
+    /* Chessboard (400x400, mỗi ô 50x50) */
+    #chessboard {
+      margin: 0 auto;
+      width: 400px;
+      height: 400px;
+      display: grid;
+      grid-template-columns: repeat(8, 50px);
+      grid-template-rows: repeat(8, 50px);
+      border: 4px solid #3f51b5;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: transform 0.3s;
+    }
+    #chessboard.flipped {
+      transform: rotate(180deg);
+    }
+    #chessboard.flipped .square {
+      transform: rotate(180deg);
+    }
+    .square {
+      width: 50px;
+      height: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 32px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.3s;
+      position: relative;
+    }
+    .light { background: #fafafa; }
+    .dark { background: #b0bec5; color: #fff; }
+    .square:hover { filter: brightness(1.1); }
+    .selected { outline: 3px solid #ffeb3b; }
+    /* Overlay cho annotation (hiển thị icon đánh giá) */
+    .annotation-overlay {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 50%;
+      padding: 2px;
+      font-size: 16px;
+      pointer-events: none;
+    }
+    /* Overlay cho mũi tên chỉ dẫn */
+    .arrow-overlay {
+      position: absolute;
+      bottom: 2px;
+      left: 2px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 50%;
+      padding: 2px;
+      font-size: 16px;
+      pointer-events: none;
+      color: blue;
+    }
+    /* Modal overlay cho Game Over & Review */
+    #modalOverlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    #modalContent {
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 500px;
+      position: relative;
+      text-align: center;
+    }
+    /* Nút X (đóng modal) */
+    #modalClose {
+      position: absolute;
+      top: 5px; left: 5px;
+      cursor: pointer;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    /* Nút modal */
+    .modalButton {
+      cursor: pointer;
+      padding: 8px 16px;
+      margin: 10px;
+      background: #3f51b5;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      transition: background 0.3s;
+    }
+    .modalButton:hover { background: #2c3e9f; }
+    /* Review modal nội dung */
+    #reviewSection {
+      display: none;
+      margin-top: 20px;
+    }
+    #reviewInfo {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    /* Bàn review nhỏ */
+    #reviewBoard {
+      margin: 10px auto;
+      width: 200px;
+      height: 200px;
+      display: grid;
+      grid-template-columns: repeat(8, 25px);
+      grid-template-rows: repeat(8, 25px);
+      border: 2px solid #3f51b5;
+      border-radius: 5px;
+      overflow: hidden;
+      transition: all 0.3s;
+    }
+    /* Full review: phóng to bàn review */
+    #reviewBoard.full {
+      width: 480px;
+      height: 480px;
+      grid-template-columns: repeat(8, 60px);
+      grid-template-rows: repeat(8, 60px);
+    }
+    #reviewBoard.full .square {
+      font-size: 48px;
+    }
+    #reviewModalControls {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Main game interface -->
+    <div class="header">
+      <div id="whitePlay">White Play</div>
+      <div id="startGame">Start Game</div>
+      <div id="blackPlay">Black Play</div>
+    </div>
+    <div class="jerryfish" id="logo">JerryFish</div>
+    <div class="player-select">
+      <div id="whiteType">Human</div>
+      <div id="blackType">Human</div>
+    </div>
+    <div id="chessboard"></div>
+    <div id="leave" class="modalButton" style="margin-top:10px;">Đấu lại</div>
+    
+    <!-- Modal overlay cho Game Over & Review -->
+    <div id="modalOverlay">
+      <div id="modalContent">
+        <div id="modalClose">X</div>
+        <div id="modalMessage" style="font-size:24px; margin:20px 0;"></div>
+        <div id="modalButtons">
+          <button id="reviewButton" class="modalButton">Xem lại ván đấu</button>
+          <button id="replayButton" class="modalButton">Đấu lại</button>
+        </div>
+        <!-- Review modal nội dung -->
+        <div id="reviewSection">
+          <div id="reviewInfo"></div>
+          <div id="reviewBoard"></div>
+          <div id="reviewModalControls">
+            <button id="prevReview" class="modalButton">Previous</button>
+            <button id="nextReview" class="modalButton">Next</button>
+            <button id="fullReviewButton" class="modalButton">Full Review</button>
+            <button id="exitReview" class="modalButton">Exit Review</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /************** GLOBAL VARIABLES **************/
+    let whitePlayerType = "Human";
+    let blackPlayerType = "Human";
+    let humanSide = null; // 'w' hoặc 'b' nếu có bot, null nếu 2 người chơi
+    let selectedSquare = null;
+    let chess;
+    let useAdvancedEval = false; // Cho chế độ JerryFish 2.0
+    let transpositionTable = {};
+    const pieceValues = { p:100, n:320, b:330, r:500, q:900, k:20000 };
+    const unicodePieces = {
+      wp: '♙', wr: '♖', wn: '♘', wb: '♗', wq: '♕', wk: '♔',
+      bp: '♟', br: '♜', bn: '♞', bb: '♝', bq: '♛', bk: '♚'
+    };
+    // Variables cho Review Mode
+    let reviewHistory = [];  // Các bước: { moveNumber, san, diff, annotation, fen }
+    let reviewIndex = 0;
+    let reviewChess; // Đối tượng Chess dùng cho Review
+    let isFullReview = false;
+
+    /************** PLAYER TYPE TOGGLE **************/
+    document.getElementById('whiteType').addEventListener('click', function() {
+      if (whitePlayerType === "Human") { whitePlayerType = "JerryFish 1.0"; }
+      else if (whitePlayerType === "JerryFish 1.0") { whitePlayerType = "JerryFish 2.0"; }
+      else { whitePlayerType = "Human"; }
+      this.textContent = whitePlayerType;
+    });
+    document.getElementById('blackType').addEventListener('click', function() {
+      if (blackPlayerType === "Human") { blackPlayerType = "JerryFish 1.0"; }
+      else if (blackPlayerType === "JerryFish 1.0") { blackPlayerType = "JerryFish 2.0"; }
+      else { blackPlayerType = "Human"; }
+      this.textContent = blackPlayerType;
+    });
+
+    /************** START GAME HANDLER **************/
+    document.getElementById('startGame').addEventListener('click', function() {
+      if (whitePlayerType !== "Human" && blackPlayerType !== "Human") {
+        showGameOverModal("Hai con JerryFish đang đấu nhau!");
+        return;
+      }
+      chess = new Chess();
+      if ((whitePlayerType === "JerryFish 1.0" || whitePlayerType === "JerryFish 2.0") && blackPlayerType === "Human") {
+        humanSide = 'b';
+      } else if ((blackPlayerType === "JerryFish 1.0" || blackPlayerType === "JerryFish 2.0") && whitePlayerType === "Human") {
+        humanSide = 'w';
+      } else { humanSide = null; }
+      renderBoard();
+      document.getElementById('chessboard').style.display = 'grid';
+      document.getElementById('leave').style.display = 'inline-block';
+      transpositionTable = {};
+      if (humanSide !== null && chess.turn() !== humanSide) {
+        setTimeout(botMove, 500);
+      }
+    });
+    document.getElementById('leave').addEventListener('click', function() {
+      location.reload();
+    });
+
+    /************** RENDER BOARD **************/
+    function renderBoard() {
+      const boardDiv = document.getElementById('chessboard');
+      boardDiv.innerHTML = "";
+      const files = ['a','b','c','d','e','f','g','h'];
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          let rank = 8 - i;
+          let file = files[j];
+          let squareName = file + rank;
+          let square = document.createElement('div');
+          square.classList.add('square');
+          if (((j) + rank) % 2 === 0) { square.classList.add('light'); }
+          else { square.classList.add('dark'); }
+          square.dataset.square = squareName;
+          square.addEventListener('click', onSquareClick);
+          let piece = chess.get(squareName);
+          if (piece) { square.textContent = unicodePieces[piece.color + piece.type]; }
+          boardDiv.appendChild(square);
+        }
+      }
+      if (humanSide === 'b') { boardDiv.classList.add('flipped'); }
+      else { boardDiv.classList.remove('flipped'); }
+      checkGameOver();
+    }
+
+    /************** PLAYER MOVE HANDLER **************/
+    function onSquareClick(e) {
+      const squareName = e.currentTarget.dataset.square;
+      if (humanSide !== null && chess.turn() !== humanSide) return;
+      if (!selectedSquare) {
+        let piece = chess.get(squareName);
+        if (piece && piece.color === chess.turn()) {
+          selectedSquare = squareName;
+          highlightSquare(squareName);
+        }
+      } else {
+        const move = chess.move({from: selectedSquare, to: squareName, promotion: 'q'});
+        removeHighlights();
+        selectedSquare = null;
+        if (move === null) return;
+        renderBoard();
+        transpositionTable = {};
+        if (!chess.game_over() && humanSide !== null && chess.turn() !== humanSide) {
+          setTimeout(botMove, 300);
+        }
+      }
+    }
+    function highlightSquare(squareName) {
+      const sq = document.querySelector(`[data-square="${squareName}"]`);
+      if (sq) sq.classList.add('selected');
+    }
+    function removeHighlights() {
+      document.querySelectorAll('.square').forEach(sq => { sq.classList.remove('selected'); });
+    }
+
+    /************** BOT MOVE (MINIMAX) **************/
+    function botMove() {
+      if (chess.game_over()) return;
+      const bestMove = getBestMove();
+      if (bestMove) { chess.move(bestMove.san); renderBoard(); }
+      if (!chess.game_over() && humanSide !== null && chess.turn() !== humanSide) {
+        setTimeout(botMove, 300);
+      }
+    }
+    function getBestMove() {
+      let chosenDepth = 3;
+      if (chess.turn() === 'w') { useAdvancedEval = (whitePlayerType === "JerryFish 2.0"); }
+      else { useAdvancedEval = (blackPlayerType === "JerryFish 2.0"); }
+      transpositionTable = {};
+      let bestMove = null;
+      let bestEval = (chess.turn() === 'w') ? -Infinity : Infinity;
+      const moves = chess.moves({verbose:true});
+      for (let move of moves) {
+        chess.move(move.san);
+        let evalScore = minimax(chosenDepth - 1, -Infinity, Infinity);
+        chess.undo();
+        if (chess.turn() === 'w') {
+          if (evalScore > bestEval) { bestEval = evalScore; bestMove = move; }
+        } else {
+          if (evalScore < bestEval) { bestEval = evalScore; bestMove = move; }
+        }
+      }
+      return bestMove;
+    }
+    function minimax(depth, alpha, beta) {
+      let key = chess.fen() + "_" + depth;
+      if (transpositionTable.hasOwnProperty(key)) return transpositionTable[key];
+      if (depth === 0 || chess.game_over()) {
+        let evalVal = evaluateBoard();
+        transpositionTable[key] = evalVal;
+        return evalVal;
+      }
+      const moves = chess.moves({verbose:true});
+      let value;
+      if (chess.turn() === 'w') {
+        value = -Infinity;
+        for (let move of moves) {
+          chess.move(move.san);
+          let evalScore = minimax(depth - 1, alpha, beta);
+          chess.undo();
+          value = Math.max(value, evalScore);
+          alpha = Math.max(alpha, evalScore);
+          if (beta <= alpha) break;
+        }
+      } else {
+        value = Infinity;
+        for (let move of moves) {
+          chess.move(move.san);
+          let evalScore = minimax(depth - 1, alpha, beta);
+          chess.undo();
+          value = Math.min(value, evalScore);
+          beta = Math.min(beta, evalScore);
+          if (beta <= alpha) break;
+        }
+      }
+      transpositionTable[key] = value;
+      return value;
+    }
+    function evaluateBoard() {
+      const values = { p:100, n:320, b:330, r:500, q:900, k:20000 };
+      const boardState = chess.board();
+      let score = 0;
+      boardState.forEach(row => {
+        row.forEach(piece => {
+          if (piece) { score += (piece.color==='w') ? values[piece.type] : -values[piece.type]; }
+        });
+      });
+      if (useAdvancedEval) {
+        const centerSquares = ['d4','e4','d5','e5'];
+        centerSquares.forEach(sq => {
+          let p = chess.get(sq);
+          if (p) { score += (p.color==='w') ? 20 : -20; }
+        });
+        let fenParts = chess.fen().split(" ");
+        let whiteFen = fenParts.slice(); whiteFen[1] = 'w';
+        let blackFen = fenParts.slice(); blackFen[1] = 'b';
+        let whiteInstance = new Chess(whiteFen.join(" "));
+        let blackInstance = new Chess(blackFen.join(" "));
+        let whiteMob = whiteInstance.moves().length;
+        let blackMob = blackInstance.moves().length;
+        score += 10 * (whiteMob - blackMob);
+        if ((chess.get('g1') && chess.get('g1').type==='k') || (chess.get('c1') && chess.get('c1').type==='k')) score += 30;
+        if ((chess.get('g8') && chess.get('g8').type==='k') || (chess.get('c8') && chess.get('c8').type==='k')) score -= 30;
+      }
+      return score;
+    }
+    function checkGameOver() {
+      if (chess.game_over()) {
+        let message = "";
+        if (chess.in_checkmate()) {
+          message = (chess.turn() === humanSide) ? "Bạn đã thua" : "Bạn đã thắng";
+        } else { message = "Hòa"; }
+        showGameOverModal(message);
+      }
+    }
+    
+    /************** MODAL & REVIEW MODE **************/
+    function showGameOverModal(resultMessage) {
+      const modal = document.getElementById('modalOverlay');
+      document.getElementById('modalMessage').innerText = resultMessage;
+      document.getElementById('modalButtons').style.display = 'block';
+      document.getElementById('reviewSection').style.display = 'none';
+      modal.style.display = 'flex';
+    }
+    document.getElementById('modalClose').addEventListener('click', function() {
+      document.getElementById('modalOverlay').style.display = 'none';
+    });
+    document.getElementById('replayButton').addEventListener('click', function() {
+      location.reload();
+    });
+    document.getElementById('reviewButton').addEventListener('click', function() {
+      initReviewMode();
+    });
+    
+    // Helper cho Review Mode: lấy nước tốt nhất từ một đối tượng Chess (độ sâu 2 cho review)
+    function getBestMoveForPosition(chessInstance) {
+      let chosenDepth = 2;
+      let best = null;
+      let bestEval = (chessInstance.turn() === 'w') ? -Infinity : Infinity;
+      let moves = chessInstance.moves({verbose:true});
+      for (let move of moves) {
+        chessInstance.move(move.san);
+        let evalScore = minimaxReview(chessInstance, chosenDepth - 1, -Infinity, Infinity);
+        chessInstance.undo();
+        if (chessInstance.turn() === 'w') {
+          if (evalScore > bestEval) { bestEval = evalScore; best = move; }
+        } else {
+          if (evalScore < bestEval) { bestEval = evalScore; best = move; }
+        }
+      }
+      return best;
+    }
+    function minimaxReview(chessInstance, depth, alpha, beta) {
+      if (depth === 0 || chessInstance.game_over()) {
+        return evaluatePosition(chessInstance);
+      }
+      let moves = chessInstance.moves({verbose:true});
+      let side = chessInstance.turn();
+      let value = (side==='w') ? -Infinity : Infinity;
+      for (let move of moves) {
+        chessInstance.move(move.san);
+        let evalScore = minimaxReview(chessInstance, depth-1, alpha, beta);
+        chessInstance.undo();
+        if (side==='w') {
+          value = Math.max(value, evalScore);
+          alpha = Math.max(alpha, evalScore);
+        } else {
+          value = Math.min(value, evalScore);
+          beta = Math.min(beta, evalScore);
+        }
+        if (beta <= alpha) break;
+      }
+      return value;
+    }
+    function evaluatePosition(chessInstance) {
+      const values = { p:100, n:320, b:330, r:500, q:900, k:20000 };
+      let board = chessInstance.board();
+      let score = 0;
+      board.forEach(row => {
+        row.forEach(piece => {
+          if (piece) { score += (piece.color==='w') ? values[piece.type] : -values[piece.type]; }
+        });
+      });
+      return score;
+    }
+    function getAnnotation(diff) {
+      if (diff === 0) return "Best Move (#)";
+      else if (diff < 80) return "Tuyệt vời (❕)";
+      else if (diff < 200) return "Tốt (✅)";
+      else if (diff < 400) return "Không chính xác (⁉)";
+      else if (diff < 600) return "Mistake (❓)";
+      else return "Blunder (❓❓)";
+    }
+    // Hàm parseDestination: trích xuất ô đích từ SAN (ví dụ "e4" từ "Nf3e5" hay "e4" từ "e4")
+    function parseDestination(san) {
+      let match = san.match(/([a-h][1-8])$/);
+      return match ? match[1] : null;
+    }
+    function renderReviewModal() {
+      // Xây dựng reviewChess từ bước 1 đến reviewIndex; nếu reviewIndex==0, vị trí ban đầu
+      reviewChess = new Chess();
+      for (let i = 1; i <= reviewIndex; i++) {
+        reviewChess.move(reviewHistory[i].san);
+      }
+      const reviewBoardDiv = document.getElementById('reviewBoard');
+      reviewBoardDiv.innerHTML = "";
+      const files = ['a','b','c','d','e','f','g','h'];
+      let board = reviewChess.board();
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          let rank = 8 - i;
+          let file = files[j];
+          let squareName = file + rank;
+          let square = document.createElement('div');
+          square.classList.add('square');
+          square.dataset.square = squareName;
+          if (((j)+rank) % 2 === 0) { square.classList.add('light'); }
+          else { square.classList.add('dark'); }
+          square.innerText = "";
+          let piece = reviewChess.get(squareName);
+          if (piece) { square.innerText = unicodePieces[piece.color + piece.type]; }
+          square.style.position = "relative";
+          reviewBoardDiv.appendChild(square);
+        }
+      }
+      // Hiển thị bàn review theo hướng chuẩn (không lật)
+      reviewBoardDiv.classList.remove('flipped');
+      // Cập nhật thông tin review
+      let infoDiv = document.getElementById('reviewInfo');
+      if (reviewIndex === 0)
+        infoDiv.innerText = "Ban đầu (Chưa đi)";
+      else if (reviewHistory[reviewIndex])
+        infoDiv.innerText = "Nước " + reviewHistory[reviewIndex].moveNumber + ": " + reviewHistory[reviewIndex].san + " → " + reviewHistory[reviewIndex].annotation;
+      else
+        infoDiv.innerText = "";
+      
+      // Nếu reviewIndex > 0, so sánh nước đi đã chơi với best move từ vị trí trước đó
+      if (reviewIndex > 0) {
+        let prevFen = reviewHistory[reviewIndex - 1].fen;
+        let tempChess = new Chess(prevFen);
+        let bestMove = getBestMoveForPosition(tempChess);
+        let playedSan = reviewHistory[reviewIndex].san;
+        if (bestMove) {
+          if (bestMove.san === playedSan) {
+            // Nếu nước đi đã chơi là best move, overlay annotation lên ô đích của nước đi đó
+            let dest = parseDestination(playedSan);
+            if (dest) {
+              let targetSquare = reviewBoardDiv.querySelector(`[data-square="${dest}"]`);
+              if (targetSquare) {
+                let overlay = document.createElement('span');
+                overlay.className = "annotation-overlay";
+                // Lấy emoji từ annotation
+                let annotation = reviewHistory[reviewIndex].annotation;
+                let emoji = "";
+                if (annotation.indexOf("✳") !== -1) emoji = "✳";
+                else if (annotation.indexOf("❕") !== -1) emoji = "❕";
+                else if (annotation.indexOf("✅") !== -1) emoji = "✅";
+                else if (annotation.indexOf("⁉") !== -1) emoji = "⁉";
+                else if (annotation.indexOf("❓❓") !== -1) emoji = "❓❓";
+                else if (annotation.indexOf("❓") !== -1) emoji = "❓";
+                else emoji = annotation;
+                overlay.innerText = emoji;
+                targetSquare.appendChild(overlay);
+              }
+            }
+          } else {
+            // Nếu không phải best move, overlay mũi tên lên ô đích của best move
+            let bestDest = parseDestination(bestMove.san);
+            if (bestDest) {
+              let targetBest = reviewBoardDiv.querySelector(`[data-square="${bestDest}"]`);
+              if (targetBest) {
+                let arrow = document.createElement('span');
+                arrow.className = "arrow-overlay";
+                arrow.innerText = "⇨";
+                targetBest.appendChild(arrow);
+              }
+            }
+            // Cũng overlay annotation lên ô đích của nước đi đã chơi
+            let playedDest = parseDestination(playedSan);
+            if (playedDest) {
+              let targetPlayed = reviewBoardDiv.querySelector(`[data-square="${playedDest}"]`);
+              if (targetPlayed) {
+                let overlay = document.createElement('span');
+                overlay.className = "annotation-overlay";
+                let annotation = reviewHistory[reviewIndex].annotation;
+                let emoji = "";
+                if (annotation.indexOf("✳") !== -1) emoji = "✳";
+                else if (annotation.indexOf("❕") !== -1) emoji = "❕";
+                else if (annotation.indexOf("✅") !== -1) emoji = "✅";
+                else if (annotation.indexOf("⁉") !== -1) emoji = "⁉";
+                else if (annotation.indexOf("❓❓") !== -1) emoji = "❓❓";
+                else if (annotation.indexOf("❓") !== -1) emoji = "❓";
+                else emoji = annotation;
+                overlay.innerText = emoji;
+                targetPlayed.appendChild(overlay);
+              }
+            }
+          }
+        }
+      }
+    }
+    function getBestMoveForPosition(chessInstance) {
+      let chosenDepth = 2;
+      let best = null;
+      let bestEval = (chessInstance.turn() === 'w') ? -Infinity : Infinity;
+      let moves = chessInstance.moves({verbose:true});
+      for (let move of moves) {
+        chessInstance.move(move.san);
+        let evalScore = minimaxReview(chessInstance, chosenDepth - 1, -Infinity, Infinity);
+        chessInstance.undo();
+        if (chessInstance.turn() === 'w') {
+          if (evalScore > bestEval) { bestEval = evalScore; best = move; }
+        } else {
+          if (evalScore < bestEval) { bestEval = evalScore; best = move; }
+        }
+      }
+      return best;
+    }
+    function minimaxReview(chessInstance, depth, alpha, beta) {
+      if (depth === 0 || chessInstance.game_over()) {
+        return evaluatePosition(chessInstance);
+      }
+      let moves = chessInstance.moves({verbose:true});
+      let side = chessInstance.turn();
+      let value = (side==='w') ? -Infinity : Infinity;
+      for (let move of moves) {
+        chessInstance.move(move.san);
+        let evalScore = minimaxReview(chessInstance, depth-1, alpha, beta);
+        chessInstance.undo();
+        if (side==='w') {
+          value = Math.max(value, evalScore);
+          alpha = Math.max(alpha, evalScore);
+        } else {
+          value = Math.min(value, evalScore);
+          beta = Math.min(beta, evalScore);
+        }
+        if (beta <= alpha) break;
+      }
+      return value;
+    }
+    function evaluatePosition(chessInstance) {
+      const values = { p:100, n:320, b:330, r:500, q:900, k:20000 };
+      let board = chessInstance.board();
+      let score = 0;
+      board.forEach(row => {
+        row.forEach(piece => {
+          if (piece) { score += (piece.color==='w') ? values[piece.type] : -values[piece.type]; }
+        });
+      });
+      return score;
+    }
+    function parseDestination(san) {
+      let match = san.match(/([a-h][1-8])$/);
+      return match ? match[1] : null;
+    }
+    document.getElementById('nextReview').addEventListener('click', function() {
+      if (reviewIndex < reviewHistory.length - 1) { reviewIndex++; renderReviewModal(); }
+    });
+    document.getElementById('prevReview').addEventListener('click', function() {
+      if (reviewIndex > 0) { reviewIndex--; renderReviewModal(); }
+    });
+    document.getElementById('fullReviewButton').addEventListener('click', function() {
+      isFullReview = !isFullReview;
+      let reviewBoardDiv = document.getElementById('reviewBoard');
+      if (isFullReview) {
+        reviewBoardDiv.classList.add('full');
+        this.innerText = "Normal Review";
+      } else {
+        reviewBoardDiv.classList.remove('full');
+        this.innerText = "Full Review";
+      }
+    });
+    document.getElementById('exitReview').addEventListener('click', function() {
+      document.getElementById('modalOverlay').style.display = 'none';
+    });
+    // Khi game over, modal đã xuất hiện; nhấn nút "Xem lại ván đấu" để khởi tạo review mode.
+    function initReviewMode() {
+      document.getElementById('modalButtons').style.display = 'none';
+      document.getElementById('reviewSection').style.display = 'block';
+      reviewHistory = [];
+      reviewIndex = 0;
+      // Bản ghi ban đầu: chưa đi
+      reviewHistory.push({
+        moveNumber: 0,
+        san: "",
+        diff: 0,
+        annotation: "Chưa đi",
+        fen: new Chess().fen()
+      });
+      const moves = chess.history({verbose:true});
+      reviewChess = new Chess();
+      for (let i = 0; i < moves.length; i++) {
+        reviewChess.move(moves[i].san);
+        let clone = new Chess(reviewChess.fen());
+        let bestEval = getBestMoveEvaluation(clone, 2);
+        let playedEval = evaluatePosition(clone);
+        let diff = Math.abs(bestEval - playedEval);
+        let annotation = getAnnotation(diff);
+        reviewHistory.push({
+          moveNumber: i+1,
+          san: moves[i].san,
+          diff: diff,
+          annotation: annotation,
+          fen: reviewChess.fen()
+        });
+      }
+      // Reset reviewChess về vị trí ban đầu
+      reviewChess = new Chess();
+      reviewIndex = 0;
+      isFullReview = false;
+      renderReviewModal();
+    }
+    function getBestMoveEvaluation(chessInstance, depth) {
+      let side = chessInstance.turn();
+      let bestEval = (side==='w') ? -Infinity : Infinity;
+      let moves = chessInstance.moves({verbose:true});
+      for (let move of moves) {
+        chessInstance.move(move.san);
+        let evalScore = minimaxReview(chessInstance, depth-1, -Infinity, Infinity);
+        chessInstance.undo();
+        if (side==='w') { bestEval = Math.max(bestEval, evalScore); }
+        else { bestEval = Math.min(bestEval, evalScore); }
+      }
+      return bestEval;
+    }
+    document.getElementById('reviewButton').addEventListener('click', function() {
+      initReviewMode();
+    });
+  </script>
+</body>
+</html>
